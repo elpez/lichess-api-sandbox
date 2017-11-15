@@ -216,6 +216,10 @@ class MoveTree:
             self.losses += 1
 
 
+def format_pl(string, n):
+    return string.format(n, '' if n == 1 else 's')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--clear-cache', action='store_true', help='clear the lichess API cache')
@@ -231,20 +235,22 @@ if __name__ == '__main__':
     games = [g for g in p.all_games if g[1] == 'white']
     while True:
         tree.build_next_level(games)
-        print('\n{} total game{}'.format(len(games), '' if len(games) == 1 else 's'))
         if your_turn is True:
-            print('\nYOUR MOVES')
+            print(format_pl('\nYOUR MOVES (from {} game{})', len(games)))
         else:
-            print("\nYOUR OPPONENTS' MOVES")
+            print(format_pl("\nYOUR OPPONENTS' MOVES (from {} game{})", len(games)))
         for move, node in sorted(tree.children.items(), key=lambda p: p[1].total, reverse=True):
             wins = node.wins / node.total
             draws = node.draws / node.total
             losses = node.losses / node.total
-            print('{:8}'.format(move), end='')
-            if your_turn:
-                print(' (you won {:.2%}, drew {:.2%}, and lost {:.2%})'.format(wins, draws, losses))
-            else:
-                print(' (you won {:.2%}, drew {:.2%}, and lost {:.2%})'.format(losses, draws, wins))
+            # I believe that Ng3xe5+ (7 chars) is the longest possible chess move in strict
+            # algebraic notation.
+            print('{:7}'.format(move), end='')
+            if not your_turn:
+                wins, losses = losses, wins
+            print(' (you won {:7,.2%}, drew {:7,.2%},'.format(wins, draws), end='')
+            print(' and lost {:7,.2%}'.format(losses), end='')
+            print(format_pl(', from {} game{})', node.total))
         print()
         if tree.stack:
             for i, move in enumerate(tree.stack, start=1):
