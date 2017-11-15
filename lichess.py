@@ -79,15 +79,15 @@ class Profile:
             self.openings[game_json['opening']['name']] += 1
         except KeyError:
             pass
-        moves = game_json['moves']
-        first_move = moves[:2]
+        moves_list = game_json['moves'].split(' ')
+        first_move = moves_list[0]
         if game_json['players']['white']['userId'] == self.username:
             self.first_moves_as_white[first_move] += 1
         else:
             if first_move == 'e4':
-                self.responses_to_e4[moves[3:5]] += 1
+                self.responses_to_e4[moves_list[1]] += 1
             elif first_move == 'd4':
-                self.responses_to_d4[moves[3:5]] += 1
+                self.responses_to_d4[moves_list[1]] += 1
 
     def prettyprint(self):
         if self.real_name:
