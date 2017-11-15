@@ -69,6 +69,7 @@ class Profile:
         payload = {'nb': 100, 'page': page, 'with_opening': 1, 'with_moves': 1}
         while page <= total_pages:
             r = call_lichess_api(url, interactive=interactive, params=payload)
+            print('Fetched page {}'.format(page))
             data = r.json()
             for game_obj in data['currentPageResults']:
                 self._process_game(game_obj)
@@ -124,19 +125,15 @@ last_api_call = 0
 def call_lichess_api(url, interactive=False, **kwargs):
     """Call the Lichess API, taking care not to send more than one API call per second."""
     global last_api_call
-    waiting_time = (last_api_call + 1.1) - time.time()
+    waiting_time = (last_api_call + 1.5) - time.time()
     if waiting_time > 0:
         time.sleep(waiting_time)
     r = requests.get(url, **kwargs)
     while r.status_code == 429:
         if interactive is True:
-            if input_yes_no('You will have to wait 60 seconds for the next request. Continue? '):
-                time.sleep(61)
-                r = requests.get(url, **kwargs)
-            else:
-                return None
-        else:
-            return None
+            print('Sleeping')
+        time.sleep(61)
+        r = requests.get(url, **kwargs)
     last_api_call = time.time()
     return r
 
