@@ -219,15 +219,24 @@ class MoveTree:
             self.losses += 1
 
 
+# I may switch this to use a more robust opening book, like the one in the python-chess package.
 OPENING_NAMES = {
     ('e4', 'c5'): 'Sicilian Defense',
     ('e4', 'c6'): 'Caro-Kann Defense',
+    ('e4', 'e6'): 'French Defense',
+    ('e4', 'd5'): 'Scandinavian Defense',
+    ('e4', 'Nf6'): "Alekhine's Defense",
     ('e4', 'e5', 'Nc3'): 'Vienna Game',
+    ('e4', 'e5', 'd4'): 'Center Game',
     ('e4', 'e5', 'f4'): "King's Gambit",
     ('e4', 'e5', 'Nf3', 'Nf6'): "Petrov's Defense",
+    ('e4', 'e5', 'Nf3', 'f5'): 'Latvian Gambit',
+    ('e4', 'e5', 'Nf3', 'd6'): 'Philidor Defense',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5'): 'Ruy Lopez',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4'): 'Italian Game',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3'): "Three Knight's Game",
+    ('e4', 'e5', 'Nf3', 'Nc6', 'd4'): 'Scotch Game',
+    ('d4', 'Nf6'): 'Indian Defense',
     ('d4', 'd5', 'c4'): "Queen's Gambit",
     ('c4',): 'English Opening',
 }
