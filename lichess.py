@@ -219,100 +219,128 @@ class MoveTree:
             self.losses += 1
 
 
-def format_pl(string, n):
-    return string.format(n, '' if n == 1 else 's')
-
-
 OPENING_NAMES = {
+    ('e4', 'c5'): 'Sicilian Defense',
+    ('e4', 'c6'): 'Caro-Kann Defense',
     ('e4', 'e5', 'Nc3'): 'Vienna Game',
     ('e4', 'e5', 'f4'): "King's Gambit",
-    ('e4', 'e5', 'Nf3', 'Nf6'): "Petrov's Defence",
+    ('e4', 'e5', 'Nf3', 'Nf6'): "Petrov's Defense",
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5'): 'Ruy Lopez',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4'): 'Italian Game',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3'): "Three Knight's Game",
-    ('e4', 'c5'): 'Sicilian Defence',
     ('d4', 'd5', 'c4'): "Queen's Gambit",
     ('c4',): 'English Opening',
 }
 
 
+class MoveExplorer:
+    """Explore the moves from all the games of a given Lichess user."""
+
+    def __init__(self, username, color):
+        self.profile = Profile(username, build=True)
+        self._init_everything_else(color)
+
+    def _init_everything_else(self, color):
+        self.color = color
+        self.your_turn = (color == 'white')
+        self.opening = None
+        # The ply at which the opening was determined. Used for backtracking.
+        self.opening_ply = 0
+        self.tree = MoveTree()
+        self.games = [g for g in self.profile.all_games if g[1] == self.color]
+        self.tree.build_next_level(self.games)
+
+    def backtrack(self):
+        if self.tree.parent is not None:
+            self.tree = self.tree.parent
+            self.your_turn = not self.your_turn
+            self.games = [g for g in self.profile.all_games
+                                  if g[0][:len(self.tree.stack)] == self.tree.stack and \
+                                     g[1] == self.color]
+            if len(self.tree.stack) <= self.opening_ply:
+                self.opening = OPENING_NAMES.get(tuple(self.tree.stack))
+                if self.opening is None:
+                    self.opening_ply = 0
+
+    def advance(self, move):
+        try:
+            self.tree = self.tree.children[move]
+        except KeyError:
+            raise ValueError from None
+        else:
+            self.your_turn = not self.your_turn
+            self.games = [g for g in self.games if g[0][:len(self.tree.stack)] == self.tree.stack]
+            if self.opening is None:
+                self.opening = OPENING_NAMES.get(tuple(self.tree.stack))
+                self.opening_ply = len(self.tree.stack)
+            self.tree.build_next_level(self.games)
+
+    def flip(self):
+        self._init_everything_else('white' if color == 'black' else 'black')
+
+    def moves_so_far(self):
+        return self.tree.stack
+
+    def available_moves(self):
+        return sorted(self.tree.children.items(), key=lambda p: p[1].total, reverse=True)
+
+
+def format_pl(string, n):
+    return string.format(n, '' if n == 1 else 's')
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--clear-cache', action='store_true', help='clear the lichess API cache')
+    parser.add_argument('--clear-cache', action='store_true', help='clear the Lichess API cache')
     args = parser.parse_args()
     if args.clear_cache is True:
         for fpath in os.listdir(CACHE_DIR):
             os.remove(os.path.join(CACHE_DIR, fpath))
     username = input('Please enter your lichess username: ').strip()
-    p = Profile(username, build=True)
-    tree = MoveTree()
-    color = 'white'
-    your_turn = True
-    opening = None
-    # The ply at which the opening was determined. Used for backtracking.
-    opening_ply = 0
-    games = [g for g in p.all_games if g[1] == color]
+    explorer = MoveExplorer(username, 'white')
     while True:
-        tree.build_next_level(games)
-        if your_turn is True:
-            print(format_pl('\nYOUR MOVES (from {} game{})', len(games)))
+        if explorer.your_turn is True:
+            print(format_pl('\nYOUR MOVES (from {} game{})', len(explorer.games)))
         else:
-            print(format_pl("\nYOUR OPPONENTS' MOVES (from {} game{})", len(games)))
-        for move, node in sorted(tree.children.items(), key=lambda p: p[1].total, reverse=True):
+            print(format_pl("\nYOUR OPPONENTS' MOVES (from {} game{})", len(explorer.games)))
+        for move, node in explorer.available_moves():
             wins = node.wins / node.total
             draws = node.draws / node.total
             losses = node.losses / node.total
             # I believe that Ng3xe5+ (7 chars) is the longest possible chess move in strict
             # algebraic notation.
             print('{:7}'.format(move), end='')
-            if not your_turn:
+            if not explorer.your_turn:
                 wins, losses = losses, wins
             print(' (you won {:7,.2%}, drew {:7,.2%},'.format(wins, draws), end='')
             print(' and lost {:7,.2%}'.format(losses), end='')
             print(format_pl(', from {} game{})', node.total))
         print()
         # Print the moves so far.
-        if tree.stack:
-            for i, move in enumerate(tree.stack, start=1):
+        moves_so_far = explorer.moves_so_far()
+        if moves_so_far:
+            for i, move in enumerate(moves_so_far, start=1):
                 if i % 2 == 1:
                     print('{}. {}'.format(i, move), end='')
                 else:
                     print(' {}  '.format(move), end='')
             # Print the name of the opening.
-            if opening is not None:
-                if len(tree.stack) % 2 == 1:
+            if explorer.opening is not None:
+                if len(moves_so_far) % 2 == 1:
                     print('  ', end='')
-                print('({})'.format(opening))
+                print('({})'.format(explorer.opening))
             else:
                 print()
-        response = input('{}>>> '.format(color)).strip()
+        response = input('{}>>> '.format(explorer.color)).strip()
         if response.lower() == 'quit':
             break
         elif response.lower() == 'back':
-            if tree.parent is not None:
-                tree = tree.parent
-                your_turn = not your_turn
-                games = [g for g in p.all_games
-                                 if g[0][:len(tree.stack)] == tree.stack and g[1] == color]
-                if len(tree.stack) <= opening_ply:
-                    opening = OPENING_NAMES.get(tuple(tree.stack))
-                    if opening is None:
-                        opening_ply = 0
+            explorer.backtrack()
         elif response.lower() == 'flip':
-            color = 'white' if color == 'black' else 'black'
-            tree = MoveTree()
-            your_turn = False
-            opening = None
-            opening_ply = 0
-            games = [g for g in p.all_games if g[1] == color]
+            explorer.flip()
         else:
             try:
-                tree = tree.children[response]
-            except KeyError:
+                explorer.advance(response)
+            except ValueError:
                 print('No games found.\n')
-            else:
-                your_turn = not your_turn
-                games = [g for g in games if g[0][:len(tree.stack)] == tree.stack]
-                if opening is None:
-                    opening = OPENING_NAMES.get(tuple(tree.stack))
-                    opening_ply = len(tree.stack)
