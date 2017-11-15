@@ -8,7 +8,7 @@ import time
 import math
 import json
 import os
-import sys
+import argparse
 from operator import itemgetter
 from collections import Counter
 
@@ -18,7 +18,7 @@ CACHE_DIR = '.cache'
 
 
 class Profile:
-    def __init__(self, username):
+    def __init__(self, username, *, build=False, **build_kwargs):
         self.username = username
         self.real_name = ''
         self.bullet_rating = 0
@@ -31,6 +31,8 @@ class Profile:
         self.first_moves_as_white = Counter()
         self.responses_to_e4 = Counter()
         self.responses_to_d4 = Counter()
+        if build is True:
+            self.build(**build_kwargs)
 
     def build(self, verbose=True):
         data = call_lichess_api(API_ENDPOINT + 'user/' + self.username, verbose=verbose)
@@ -159,11 +161,13 @@ def url_to_fpath(url, **kwargs):
 
 
 if __name__ == '__main__':
-    if '--clear-cache' in sys.argv:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--clear-cache', action='store_true', help='clear the lichess API cache')
+    args = parser.parse_args()
+    if args.clear_cache is True:
         for fpath in os.listdir(CACHE_DIR):
             os.remove(os.path.join(CACHE_DIR, fpath))
     username = input('Please enter your lichess username: ').strip()
-    p = Profile(username)
-    p.build()
+    p = Profile(username, build=True)
     print()
     p.prettyprint()
