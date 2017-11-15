@@ -196,6 +196,9 @@ class MoveTree:
         return ret
 
     def build_next_level(self, games):
+        if len(self.children) > 0:
+            # The next level has already been built.
+            return
         for moves, color, result in games:
             move = moves[len(self.stack)]
             try:
@@ -220,6 +223,19 @@ def format_pl(string, n):
     return string.format(n, '' if n == 1 else 's')
 
 
+OPENING_NAMES = {
+    ('e4', 'e5', 'Nc3'): 'Vienna Game',
+    ('e4', 'e5', 'f4'): "King's Gambit",
+    ('e4', 'e5', 'Nf3', 'Nf6'): "Petrov's Defence",
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5'): 'Ruy Lopez',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4'): 'Italian Game',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3'): "Three Knight's Game",
+    ('e4', 'c5'): 'Sicilian Defence',
+    ('d4', 'd5', 'c4'): "Queen's Gambit",
+    ('c4',): 'English Opening',
+}
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--clear-cache', action='store_true', help='clear the lichess API cache')
@@ -232,7 +248,10 @@ if __name__ == '__main__':
     tree = MoveTree()
     color = 'white'
     your_turn = True
-    games = [g for g in p.all_games if g[1] == 'white']
+    opening = None
+    # The ply at which the opening was determined. Used for backtracking.
+    opening_ply = 0
+    games = [g for g in p.all_games if g[1] == color]
     while True:
         tree.build_next_level(games)
         if your_turn is True:
@@ -252,16 +271,33 @@ if __name__ == '__main__':
             print(' and lost {:7,.2%}'.format(losses), end='')
             print(format_pl(', from {} game{})', node.total))
         print()
+        # Print the moves so far.
         if tree.stack:
             for i, move in enumerate(tree.stack, start=1):
                 if i % 2 == 1:
                     print('{}. {}'.format(i, move), end='')
                 else:
                     print(' {}  '.format(move), end='')
-            print()
+            # Print the name of the opening.
+            if opening is not None:
+                if len(tree.stack) % 2 == 1:
+                    print('  ', end='')
+                print('({})'.format(opening))
+            else:
+                print()
         response = input('{}>>> '.format(color)).strip()
         if response.lower() == 'quit':
             break
+        elif response.lower() == 'back':
+            if tree.parent is not None:
+                tree = tree.parent
+                your_turn = not your_turn
+                games = [g for g in p.all_games
+                                 if g[0][:len(tree.stack)] == tree.stack and g[1] == color]
+                if len(tree.stack) <= opening_ply:
+                    opening = OPENING_NAMES.get(tuple(tree.stack))
+                    if opening is None:
+                        opening_ply = 0
         else:
             try:
                 tree = tree.children[response]
@@ -270,3 +306,6 @@ if __name__ == '__main__':
             else:
                 your_turn = not your_turn
                 games = [g for g in games if g[0][:len(tree.stack)] == tree.stack]
+                if opening is None:
+                    opening = OPENING_NAMES.get(tuple(tree.stack))
+                    opening_ply = len(tree.stack)
