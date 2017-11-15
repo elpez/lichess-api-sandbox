@@ -298,6 +298,13 @@ if __name__ == '__main__':
                     opening = OPENING_NAMES.get(tuple(tree.stack))
                     if opening is None:
                         opening_ply = 0
+        elif response.lower() == 'flip':
+            color = 'white' if color == 'black' else 'black'
+            tree = MoveTree()
+            your_turn = False
+            opening = None
+            opening_ply = 0
+            games = [g for g in p.all_games if g[1] == color]
         else:
             try:
                 tree = tree.children[response]
