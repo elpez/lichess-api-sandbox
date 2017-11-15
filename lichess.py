@@ -236,8 +236,8 @@ OPENING_NAMES = {
 class MoveExplorer:
     """Explore the moves from all the games of a given Lichess user."""
 
-    def __init__(self, username, color):
-        self.profile = Profile(username, build=True)
+    def __init__(self, username, color, **profile_kwargs):
+        self.profile = Profile(username, build=True, **profile_kwargs)
         self._init_everything_else(color)
 
     def _init_everything_else(self, color):
@@ -292,13 +292,18 @@ def format_pl(string, n):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('username', nargs='?')
     parser.add_argument('--clear-cache', action='store_true', help='clear the Lichess API cache')
+    parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
     if args.clear_cache is True:
         for fpath in os.listdir(CACHE_DIR):
             os.remove(os.path.join(CACHE_DIR, fpath))
-    username = input('Please enter your lichess username: ').strip()
-    explorer = MoveExplorer(username, 'white')
+    if args.username is not None:
+        username = args.username
+    else:
+        username = input('Please enter your Lichess username: ').strip()
+    explorer = MoveExplorer(username, 'white', verbose=args.verbose)
     while True:
         if explorer.your_turn is True:
             print(format_pl('\nYOUR MOVES (from {} game{})', len(explorer.games)))
