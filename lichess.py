@@ -157,6 +157,8 @@ def call_lichess_api(url, use_cache=True, verbose=False, **kwargs):
             r = requests.get(url, **kwargs)
         last_api_call = time.time()
         data = r.json()
+        if not os.path.exists(CACHE_DIR):
+            os.mkdir(CACHE_DIR)
         with open(os.path.join(CACHE_DIR, url_to_fpath(url, **kwargs)), 'w') as fsock:
             json.dump(data, fsock)
         return data
@@ -312,6 +314,7 @@ if __name__ == '__main__':
         username = args.username
     else:
         username = input('Please enter your Lichess username: ').strip()
+    print('\nLoading user data...\n')
     explorer = MoveExplorer(username, 'white', verbose=args.verbose)
     while True:
         if explorer.your_turn is True:
