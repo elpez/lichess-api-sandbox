@@ -9,8 +9,9 @@ import math
 import json
 import os
 import argparse
-from operator import itemgetter
-from collections import Counter
+import readline
+from operator import itemgetter, attrgetter
+from collections import Counter, namedtuple
 
 
 API_ENDPOINT = 'https://lichess.org/api/'
@@ -27,6 +28,7 @@ class Profile:
         self.blitz_games = 0
         self.classical_rating = 0
         self.classical_games = 0
+        self.all_games = []
         self.openings = Counter()
         self.first_moves_as_white = Counter()
         self.responses_to_e4 = Counter()
@@ -61,7 +63,7 @@ class Profile:
             self.classical_games = json_classical['games']
         # Get game information.
         # Call API for the first time to see how many pages of results there will be.
-        url = API_ENDPOINT + 'user/' + username + '/games'
+        url = API_ENDPOINT + 'user/' + self.username + '/games'
         data = call_lichess_api(url, verbose=verbose, params={'nb': 0})
         total_results = data.get('nbResults', 0)
         total_pages = math.ceil(total_results / 100)
@@ -77,6 +79,8 @@ class Profile:
             payload['page'] = page
 
     def _process_game(self, game_json):
+        if game_json['variant'] != 'standard' or not game_json['moves']:
+            return
         try:
             self.openings[game_json['opening']['name']] += 1
         except KeyError:
@@ -85,11 +89,22 @@ class Profile:
         first_move = moves_list[0]
         if game_json['players']['white']['userId'] == self.username:
             self.first_moves_as_white[first_move] += 1
+            if game_json['status'] in ('mate', 'resign', 'outoftime'):
+                self.all_games.append( (moves_list, 'white', game_json['winner']) )
+            elif game_json['status'] in ('stalemate', 'draw'):
+                self.all_games.append( (moves_list, 'white', None) )
         else:
+            if game_json['status'] in ('mate', 'resign', 'outoftime'):
+                self.all_games.append( (moves_list, 'black', game_json['winner']) )
+            elif game_json['status'] in ('stalemate', 'draw'):
+                self.all_games.append( (moves_list, 'black', None) )
             if first_move == 'e4':
                 self.responses_to_e4[moves_list[1]] += 1
             elif first_move == 'd4':
                 self.responses_to_d4[moves_list[1]] += 1
+
+    def filter_games(self, moves_so_far, you=True):
+        return [game for game in self.all_games if game[0][:len(moves_so_far)] == moves_so_far]
 
     def prettyprint(self):
         if self.real_name:
@@ -160,6 +175,50 @@ def url_to_fpath(url, **kwargs):
         return url + '.json'
 
 
+MoveTree = namedtuple('MoveTree', ['parent', 'children', 'wins', 'draws', 'losses', 'stack'])
+
+
+class MoveTree:
+    def __init__(self):
+        self.parent = None
+        self.children = {}
+        self.wins = 0
+        self.draws = 0
+        self.losses = 0
+        self.total = 0
+        self.stack = []
+
+    @classmethod
+    def from_parent(cls, parent, move):
+        ret = cls()
+        ret.parent = parent
+        ret.stack = parent.stack + [move]
+        return ret
+
+    def build_next_level(self, games):
+        for moves, color, result in games:
+            if (color == 'white' and len(self.stack) % 2 == 1) or \
+               (color == 'black' and len(self.stack) % 2 == 0):
+                continue
+            move = moves[len(self.stack)]
+            try:
+                node = self.children[move]
+            except KeyError:
+                node = MoveTree.from_parent(self, move)
+                self.children[move] = node
+            node.update_results(result)
+
+    def update_results(self, result):
+        self.total += 1
+        if result is None:
+            self.draws += 1
+        elif (result == 'white' and len(self.stack) % 2 == 1) or \
+             (result == 'black' and len(self.stack) % 2 == 0):
+            self.wins += 1
+        else:
+            self.losses += 1
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--clear-cache', action='store_true', help='clear the lichess API cache')
@@ -169,5 +228,33 @@ if __name__ == '__main__':
             os.remove(os.path.join(CACHE_DIR, fpath))
     username = input('Please enter your lichess username: ').strip()
     p = Profile(username, build=True)
-    print()
-    p.prettyprint()
+    tree = MoveTree()
+    games = p.all_games
+    while True:
+        tree.build_next_level(games)
+        print('\n{} total game{}\n'.format(len(games), '' if len(games) == 1 else 's'))
+        for move, node in sorted(tree.children.items(), key=lambda p: p[1].total, reverse=True):
+            wins = node.wins / node.total
+            draws = node.draws / node.total
+            losses = node.losses / node.total
+            print('{:8} ({:.2%} won, {:.2%} drawn, {:.2%} lost)'.format(move, wins, draws, losses))
+        if tree.children.items():
+            print()
+        if tree.stack:
+            for i, move in enumerate(tree.stack, start=1):
+                if i % 2 == 1:
+                    print('{}. {}'.format(i, move), end='')
+                    if i == len(tree.stack):
+                        print('  ', end='')
+                else:
+                    print(' {}  '.format(move), end='')
+        response = input('>>> ').strip()
+        if response.lower() == 'quit':
+            break
+        else:
+            try:
+                tree = tree.children[response]
+            except KeyError:
+                print('No games found.\n')
+            else:
+                games = [g for g in games if g[0][:len(tree.stack)] == tree.stack]
