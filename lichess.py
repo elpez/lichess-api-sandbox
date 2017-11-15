@@ -6,10 +6,15 @@ Docs for the API can be found at https://github.com/ornicar/lila#http-api
 import requests
 import time
 import math
+import json
+import os
+import sys
+from operator import itemgetter
 from collections import Counter
 
 
 API_ENDPOINT = 'https://lichess.org/api/'
+CACHE_DIR = '.cache'
 
 
 class Profile:
@@ -27,9 +32,8 @@ class Profile:
         self.responses_to_e4 = Counter()
         self.responses_to_d4 = Counter()
 
-    def build(self, interactive=True):
-        r = call_lichess_api(API_ENDPOINT + 'user/' + self.username, interactive=interactive)
-        data = r.json()
+    def build(self, verbose=True):
+        data = call_lichess_api(API_ENDPOINT + 'user/' + self.username, verbose=verbose)
         # Get profile information.
         json_profile = data.get('profile')
         if json_profile:
@@ -56,21 +60,15 @@ class Profile:
         # Get game information.
         # Call API for the first time to see how many pages of results there will be.
         url = API_ENDPOINT + 'user/' + username + '/games'
-        r = call_lichess_api(url, interactive=interactive, params={'nb': 0})
-        data = r.json()
+        data = call_lichess_api(url, verbose=verbose, params={'nb': 0})
         total_results = data.get('nbResults', 0)
         total_pages = math.ceil(total_results / 100)
-        if interactive is True:
-            if total_pages > 15:
-                prompt = 'Fetching data will take at least %s seconds. Continue? ' % total_pages
-                if not input_yes_no(prompt):
-                    return
         page = 1
         payload = {'nb': 100, 'page': page, 'with_opening': 1, 'with_moves': 1}
         while page <= total_pages:
-            r = call_lichess_api(url, interactive=interactive, params=payload)
-            print('Fetched page {}'.format(page))
-            data = r.json()
+            data = call_lichess_api(url, verbose=verbose, params=payload)
+            if verbose is True:
+                print('Fetched page {} of {}'.format(page, total_pages))
             for game_obj in data['currentPageResults']:
                 self._process_game(game_obj)
             page += 1
@@ -122,32 +120,48 @@ class Profile:
 
 
 last_api_call = 0
-def call_lichess_api(url, interactive=False, **kwargs):
+def call_lichess_api(url, use_cache=True, verbose=False, **kwargs):
     """Call the Lichess API, taking care not to send more than one API call per second."""
     global last_api_call
-    waiting_time = (last_api_call + 1.5) - time.time()
-    if waiting_time > 0:
-        time.sleep(waiting_time)
-    r = requests.get(url, **kwargs)
-    while r.status_code == 429:
-        if interactive is True:
-            print('Sleeping')
-        time.sleep(61)
+    fpath = os.path.join(CACHE_DIR, url_to_fpath(url, **kwargs))
+    if use_cache and os.path.exists(fpath):
+        with open(fpath, 'r') as fsock:
+            data = json.load(fsock)
+        return data
+    else:
+        waiting_time = (last_api_call + 1.5) - time.time()
+        if waiting_time > 0:
+            time.sleep(waiting_time)
         r = requests.get(url, **kwargs)
-    last_api_call = time.time()
-    return r
+        while r.status_code == 429:
+            if verbose is True:
+                print('Sleeping')
+            time.sleep(61)
+            r = requests.get(url, **kwargs)
+        last_api_call = time.time()
+        data = r.json()
+        with open(os.path.join(CACHE_DIR, url_to_fpath(url, **kwargs)), 'w') as fsock:
+            json.dump(data, fsock)
+        return data
 
 
-def input_yes_no(*args, **kwargs):
-    while True:
-        response = input(*args, **kwargs).strip().lower()
-        if response.startswith('y'):
-            return True
-        elif response.startswith('n'):
-            return False
+def url_to_fpath(url, **kwargs):
+    # Strip off the common prefix.
+    url = url[len(API_ENDPOINT):]
+    url = url.replace('/', '_')
+    params_dict = kwargs.get('params')
+    if params_dict:
+        sorted_dict = sorted(params_dict.items(), key=itemgetter(0))
+        params_str = '_'.join(key + '=' + str(val) for key, val in sorted_dict)
+        return url + '_' + params_str + '.json'
+    else:
+        return url + '.json'
 
 
 if __name__ == '__main__':
+    if '--clear-cache' in sys.argv:
+        for fpath in os.listdir(CACHE_DIR):
+            os.remove(os.path.join(CACHE_DIR, fpath))
     username = input('Please enter your lichess username: ').strip()
     p = Profile(username)
     p.build()
