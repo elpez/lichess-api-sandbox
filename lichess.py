@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An interactive script to play with the lichess API.
+"""An interactive script to play with the Lichess API.
 
 Docs for the API can be found at https://github.com/ornicar/lila#http-api
 """
@@ -13,13 +13,15 @@ import readline
 from operator import itemgetter, attrgetter
 from collections import Counter, namedtuple
 
+from typing import List, Dict, Optional, Tuple
+
 
 API_ENDPOINT = 'https://lichess.org/api/'
 CACHE_DIR = '.cache'
 
 
 class Profile:
-    def __init__(self, username, *, build=False, **build_kwargs):
+    def __init__(self, username: str, *, build=False, **build_kwargs) -> None:
         self.username = username
         self.real_name = ''
         self.bullet_rating = 0
@@ -28,11 +30,11 @@ class Profile:
         self.blitz_games = 0
         self.classical_rating = 0
         self.classical_games = 0
-        self.games = []
+        self.games = []  # type: List[dict]
         if build is True:
             self.build(**build_kwargs)
 
-    def build(self, verbose=True):
+    def build(self, verbose=True) -> None:
         data = call_lichess_api(API_ENDPOINT + 'user/' + self.username, verbose=verbose)
         # Get profile information.
         json_profile = data.get('profile')
@@ -74,7 +76,7 @@ class Profile:
             page += 1
             payload['page'] = page
 
-    def _process_game(self, game_json):
+    def _process_game(self, game_json) -> None:
         if game_json['variant'] != 'standard' or not game_json['moves']:
             return
         if game_json['status'] not in ('mate', 'resign', 'outoftime', 'stalemate', 'draw'):
@@ -100,8 +102,8 @@ class Profile:
         return [game for game in self.games if game['moves'][:len(moves_so_far)] == moves_so_far]
 
 
-last_api_call = 0
-def call_lichess_api(url, use_cache=True, verbose=False, **kwargs):
+last_api_call = 0.0
+def call_lichess_api(url, use_cache=True, verbose=False, **kwargs) -> dict:
     """Call the Lichess API, taking care not to send more than one API call per second."""
     global last_api_call
     fpath = os.path.join(CACHE_DIR, url_to_fpath(url, **kwargs))
@@ -128,7 +130,8 @@ def call_lichess_api(url, use_cache=True, verbose=False, **kwargs):
         return data
 
 
-def url_to_fpath(url, **kwargs):
+def url_to_fpath(url: str, **kwargs) -> str:
+    """Convert a URL to a file path, for caching."""
     # Strip off the common prefix.
     url = url[len(API_ENDPOINT):]
     url = url.replace('/', '_')
@@ -141,27 +144,24 @@ def url_to_fpath(url, **kwargs):
         return url + '.json'
 
 
-MoveTree = namedtuple('MoveTree', ['parent', 'children', 'wins', 'draws', 'losses', 'stack'])
-
-
 class MoveTree:
-    def __init__(self):
-        self.parent = None
-        self.children = {}
+    def __init__(self) -> None:
+        self.parent = None  # type: Optional[MoveTree]
+        self.children = {}  # type: Dict[str, MoveTree]
         self.wins = 0
         self.draws = 0
         self.losses = 0
         self.total = 0
-        self.stack = []
+        self.stack = []  # type: List[str]
 
     @classmethod
-    def from_parent(cls, parent, move):
+    def from_parent(cls, parent: 'MoveTree', move: str) -> 'MoveTree':
         ret = cls()
         ret.parent = parent
         ret.stack = parent.stack + [move]
         return ret
 
-    def build_next_level(self, games):
+    def build_next_level(self, games: List[dict]) -> None:
         if len(self.children) > 0:
             # The next level has already been built.
             return
@@ -207,24 +207,22 @@ OPENING_NAMES = {
 class MoveExplorer:
     """Explore the moves from all the games of a given Lichess user."""
 
-    def __init__(self, username, color, **profile_kwargs):
+    def __init__(self, username: str, color: bool, **profile_kwargs) -> None:
         self.profile = Profile(username, build=True, **profile_kwargs)
         self._init_everything_else(color)
 
-    def _init_everything_else(self, color):
+    def _init_everything_else(self, color: bool) -> None:
         self.color = color
-        self.your_turn = self.color
-        self.opening = None
+        self.opening = None  # type: Optional[str]
         # The ply at which the opening was determined. Used for backtracking.
         self.opening_ply = 0
         self.tree = MoveTree()
         self.games = [g for g in self.profile.games if g['user_color'] == self.color]
         self.tree.build_next_level(self.games)
 
-    def backtrack(self):
+    def backtrack(self) -> None:
         if self.tree.parent is not None:
             self.tree = self.tree.parent
-            self.your_turn = not self.your_turn
             self.games = [g for g in self.profile.filter_games(self.tree.stack)
                                   if g['user_color'] == self.color]
             if len(self.tree.stack) <= self.opening_ply:
@@ -232,13 +230,12 @@ class MoveExplorer:
                 if self.opening is None:
                     self.opening_ply = 0
 
-    def advance(self, move):
+    def advance(self, move) -> None:
         try:
             self.tree = self.tree.children[move]
         except KeyError:
             raise ValueError from None
         else:
-            self.your_turn = not self.your_turn
             self.games = [g for g in self.games
                                   if g['moves'][:len(self.tree.stack)] == self.tree.stack]
             if self.opening is None:
@@ -246,17 +243,21 @@ class MoveExplorer:
                 self.opening_ply = len(self.tree.stack)
             self.tree.build_next_level(self.games)
 
-    def flip(self):
+    def flip(self) -> None:
         self._init_everything_else(not self.color)
 
-    def moves_so_far(self):
+    def moves_so_far(self) -> List[str]:
         return self.tree.stack
 
-    def available_moves(self):
+    def available_moves(self) -> List[Tuple[str, MoveTree]]:
         return sorted(self.tree.children.items(), key=lambda p: p[1].total, reverse=True)
 
+    def your_turn(self) -> bool:
+        return (self.color and len(self.tree.stack) % 2 == 0) or \
+               (not self.color and len(self.tree.stack) % 2 == 1)
 
-def format_pl(string, n):
+
+def format_pl(string: str, n: int) -> str:
     return string.format(n, '' if n == 1 else 's')
 
 
@@ -277,7 +278,7 @@ if __name__ == '__main__':
     print('\nLoading user data...\n')
     explorer = MoveExplorer(username, True, verbose=args.verbose)
     while True:
-        if explorer.your_turn is True:
+        if explorer.your_turn():
             print(format_pl('\nYOUR MOVES (from {} game{})', len(explorer.games)))
         else:
             print(format_pl("\nYOUR OPPONENTS' MOVES (from {} game{})", len(explorer.games)))
