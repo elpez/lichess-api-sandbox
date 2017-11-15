@@ -197,9 +197,6 @@ class MoveTree:
 
     def build_next_level(self, games):
         for moves, color, result in games:
-            if (color == 'white' and len(self.stack) % 2 == 1) or \
-               (color == 'black' and len(self.stack) % 2 == 0):
-                continue
             move = moves[len(self.stack)]
             try:
                 node = self.children[move]
@@ -229,26 +226,34 @@ if __name__ == '__main__':
     username = input('Please enter your lichess username: ').strip()
     p = Profile(username, build=True)
     tree = MoveTree()
-    games = p.all_games
+    color = 'white'
+    your_turn = True
+    games = [g for g in p.all_games if g[1] == 'white']
     while True:
         tree.build_next_level(games)
-        print('\n{} total game{}\n'.format(len(games), '' if len(games) == 1 else 's'))
+        print('\n{} total game{}'.format(len(games), '' if len(games) == 1 else 's'))
+        if your_turn is True:
+            print('\nYOUR MOVES')
+        else:
+            print("\nYOUR OPPONENTS' MOVES")
         for move, node in sorted(tree.children.items(), key=lambda p: p[1].total, reverse=True):
             wins = node.wins / node.total
             draws = node.draws / node.total
             losses = node.losses / node.total
-            print('{:8} ({:.2%} won, {:.2%} drawn, {:.2%} lost)'.format(move, wins, draws, losses))
-        if tree.children.items():
-            print()
+            print('{:8}'.format(move), end='')
+            if your_turn:
+                print(' (you won {:.2%}, drew {:.2%}, and lost {:.2%})'.format(wins, draws, losses))
+            else:
+                print(' (you won {:.2%}, drew {:.2%}, and lost {:.2%})'.format(losses, draws, wins))
+        print()
         if tree.stack:
             for i, move in enumerate(tree.stack, start=1):
                 if i % 2 == 1:
                     print('{}. {}'.format(i, move), end='')
-                    if i == len(tree.stack):
-                        print('  ', end='')
                 else:
                     print(' {}  '.format(move), end='')
-        response = input('>>> ').strip()
+            print()
+        response = input('{}>>> '.format(color)).strip()
         if response.lower() == 'quit':
             break
         else:
@@ -257,4 +262,5 @@ if __name__ == '__main__':
             except KeyError:
                 print('No games found.\n')
             else:
+                your_turn = not your_turn
                 games = [g for g in games if g[0][:len(tree.stack)] == tree.stack]
