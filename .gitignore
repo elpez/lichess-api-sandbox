@@ -1,5 +1,5 @@
 __pycache__
 .mypy_cache
 *.swp
-.cache
-.cache_backup
+.lichess_cache
+.lichess_cache_backup

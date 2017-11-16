@@ -19,7 +19,7 @@ import chess
 
 
 API_ENDPOINT = 'https://lichess.org/api/'
-CACHE_DIR = '.cache'
+CACHE_DIR = '.lichess_cache'
 
 
 def fetch_all_games(username: str, *, verbose=False) -> List[dict]:
