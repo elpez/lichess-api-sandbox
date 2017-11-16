@@ -152,6 +152,8 @@ class MoveTree:
             # The next level has already been built.
             return
         for game in games:
+            if len(game['moves']) < len(self.stack) + 1:
+                continue
             move = game['moves'][len(self.stack)]
             try:
                 node = self.children[move]
@@ -302,10 +304,10 @@ class MoveExplorer:
     def _move_str_helper(self, moves_so_far):
         i = 0
         while i < len(moves_so_far) - 1:
-            yield str(i+1) + '. ' + moves_so_far[i] + ' ' + moves_so_far[i+1] + '  '
+            yield str(i//2+1) + '. ' + moves_so_far[i] + ' ' + moves_so_far[i+1] + '  '
             i += 2
         if i == len(moves_so_far) - 1:
-            yield str(i+1) + '. ' + moves_so_far[i] + '  '
+            yield str(i//2+1) + '. ' + moves_so_far[i] + '  '
 
 
 def format_pl(string: str, n: int) -> str:
@@ -330,7 +332,10 @@ if __name__ == '__main__':
     explorer = MoveExplorer(username, True, verbose=args.verbose)
     explorer.print_stats()
     while True:
-        response = input('{}>>> '.format('white' if explorer.color else 'black')).strip()
+        while True:
+            response = input('{}>>> '.format('white' if explorer.color else 'black')).strip()
+            if response:
+                break
         response_lower = response.lower()
         if response.lower() in ('quit', 'exit'):
             break
