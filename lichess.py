@@ -168,6 +168,9 @@ class MoveTree:
 # I may switch this to use a more robust opening book, like the one in the python-chess package.
 OPENING_NAMES = {
     ('e4', 'c5'): 'Sicilian Defense',
+    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'): 'Sicilian Defense, Najdorf Variation',
+    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'g6'): 'Sicilian Dragon',
+    ('e4', 'c5', 'Nf3', 'Nc6'): 'Old Sicilian',
     ('e4', 'c6'): 'Caro-Kann Defense',
     ('e4', 'e6'): 'French Defense',
     ('e4', 'd5'): 'Scandinavian Defense',
@@ -178,13 +181,25 @@ OPENING_NAMES = {
     ('e4', 'e5', 'Nf3', 'Nf6'): "Petrov's Defense",
     ('e4', 'e5', 'Nf3', 'f5'): 'Latvian Gambit',
     ('e4', 'e5', 'Nf3', 'd6'): 'Philidor Defense',
+    ('e4', 'e5', 'Nf3', 'd5'): 'Elephant Gambit',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5'): 'Ruy Lopez',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6'): 'Ruy Lopez, Morphy Defense',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'Nf6'): 'Ruy Lopez, Berlin Defense',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4'): 'Italian Game',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5'): 'Giuco Piano',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'b4'): 'Italian Game, Evans Gambit',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3'): "Three Knight's Game",
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3', 'Nf6'): "Four Knight's Game",
     ('e4', 'e5', 'Nf3', 'Nc6', 'd4'): 'Scotch Game',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'c3'): 'Ponziani Opening',
     ('d4', 'Nf6'): 'Indian Defense',
+    ('d4', 'Nf6', 'c4', 'e6', 'Nc3', 'Bb4'): 'Nimzo-Indian Defense',
     ('d4', 'd5', 'c4'): "Queen's Gambit",
+    ('d4', 'd5', 'c4', 'e6'): "Queen's Gambit Declined",
+    ('d4', 'd5', 'c4', 'c6'): 'Slav Defense',
     ('c4',): 'English Opening',
+    ('Nf3',): 'Reti Opening',
+    ('g3',): 'Hungarian Opening',
 }
 
 
@@ -225,8 +240,11 @@ class MoveExplorer:
             self.games = [g for g in self.games
                                   if g['moves'][:len(self.tree.stack)] == self.tree.stack]
             self.board.push_san(move)
-            if self.opening is None:
-                self.opening = OPENING_NAMES.get(tuple(self.tree.stack))
+            try:
+                self.opening = OPENING_NAMES[tuple(self.tree.stack)]
+            except KeyError:
+                pass
+            else:
                 self.opening_ply = len(self.tree.stack)
             self.tree.build_next_level(self.games)
 
