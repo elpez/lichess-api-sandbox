@@ -34,7 +34,11 @@ def fetch_all_games(username: str, *, verbose=False) -> List[dict]:
     standard chess games are returned - no variants like Chess960.
     """
     # Call API for the first time to see how many pages of results there will be.
+    if verbose is True:
+        print('Requesting profile information...', end=' ', flush=True)
     url = API_ENDPOINT + 'user/' + username + '/games'
+    if verbose is True:
+        print('received', flush=True)
     data = call_lichess_api(url, verbose=verbose, params={'nb': 0})
     total_results = data.get('nbResults', 0)
     total_pages = math.ceil(total_results / 100)
@@ -42,13 +46,15 @@ def fetch_all_games(username: str, *, verbose=False) -> List[dict]:
     payload = {'nb': 100, 'page': page, 'with_opening': 1, 'with_moves': 1}
     ret = []  # type: List[dict]
     while page <= total_pages:
+        if verbose is True:
+            print('Requesting page {} of {}...'.format(page, total_pages), end=' ', flush=True)
         data = call_lichess_api(url, verbose=verbose, params=payload)
         if verbose is True:
-            print('Fetched page {} of {}'.format(page, total_pages))
+            print('received', flush=True)
         for game_json in data['currentPageResults']:
             if game_json['variant'] != 'standard' or not game_json['moves']:
                 continue
-            if game_json['status'] not in ('mate', 'resign', 'outoftime', 'stalemate', 'draw'):
+            if game_json['status'] not in ('mate', 'resign', 'stalemate', 'draw'):
                 continue
             ret.append(process_game_json(username, game_json))
         page += 1
@@ -96,7 +102,7 @@ def call_lichess_api(url, use_cache=True, verbose=False, **kwargs) -> dict:
         r = requests.get(url, **kwargs)
         while r.status_code == 429:
             if verbose is True:
-                print('Sleeping')
+                print('Received HTTP 429 - waiting a bit to send the next request')
             time.sleep(61)
             r = requests.get(url, **kwargs)
         last_api_call = time.time()
