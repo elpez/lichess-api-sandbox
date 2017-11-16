@@ -37,4 +37,4 @@ white>>>
 
 Enter one of the moves to see all your opponents' responses. Type `back` to undo the last move. Type
  `board` to view the board (courtesy of [python-chess](https://github.com/niklasf/python-chess)). 
-Type `black` to see all your moves as Black. `quit` or `exit` will end the script.
+Type `flip` to see all your moves as Black. `quit` or `exit` will end the script.
