@@ -22,86 +22,62 @@ API_ENDPOINT = 'https://lichess.org/api/'
 CACHE_DIR = '.cache'
 
 
-class Profile:
-    def __init__(self, username: str, *, build=False, **build_kwargs) -> None:
-        self.username = username
-        self.real_name = ''
-        self.bullet_rating = 0
-        self.bullet_games = 0
-        self.blitz_rating = 0
-        self.blitz_games = 0
-        self.classical_rating = 0
-        self.classical_games = 0
-        self.games = []  # type: List[dict]
-        if build is True:
-            self.build(**build_kwargs)
+def fetch_all_games(username: str, *, verbose=False) -> List[dict]:
+    """Return a list of games as lightly-processed JSON objects.
 
-    def build(self, verbose=True) -> None:
-        data = call_lichess_api(API_ENDPOINT + 'user/' + self.username, verbose=verbose)
-        # Get profile information.
-        json_profile = data.get('profile')
-        if json_profile:
-            first_name = json_profile.get('firstName', '')
-            last_name = json_profile.get('lastName', '')
-            if first_name and last_name:
-                self.real_name = first_name + ' ' + last_name
-            elif first_name or last_name:
-                self.real_name = first_name + last_name
-        # Get rating information.
-        json_perf = data['perfs']
-        json_bullet = json_perf.get('bullet')
-        if json_bullet:
-            self.bullet_rating = json_bullet['rating']
-            self.bullet_games = json_bullet['games']
-        json_blitz = json_perf.get('blitz')
-        if json_blitz:
-            self.blitz_rating = json_blitz['rating']
-            self.blitz_games = json_blitz['games']
-        json_classical = json_perf.get('classical')
-        if json_classical:
-            self.classical_rating = json_classical['rating']
-            self.classical_games = json_classical['games']
-        # Get game information.
-        # Call API for the first time to see how many pages of results there will be.
-        url = API_ENDPOINT + 'user/' + self.username + '/games'
-        data = call_lichess_api(url, verbose=verbose, params={'nb': 0})
-        total_results = data.get('nbResults', 0)
-        total_pages = math.ceil(total_results / 100)
-        page = 1
-        payload = {'nb': 100, 'page': page, 'with_opening': 1, 'with_moves': 1}
-        while page <= total_pages:
-            data = call_lichess_api(url, verbose=verbose, params=payload)
-            if verbose is True:
-                print('Fetched page {} of {}'.format(page, total_pages))
-            for game_obj in data['currentPageResults']:
-                self._process_game(game_obj)
-            page += 1
-            payload['page'] = page
+    The JSON objects differ only slightly from those returned by the Lichess API. The `moves`
+    member is a list of strings instead of a string. Two fields have been added: `user_color`, which
+    is True if the user played White in the game and False otherwise, and `user_result`, which
+    is one of ('win', 'draw', 'loss'), relative to the user.
 
-    def _process_game(self, game_json) -> None:
-        if game_json['variant'] != 'standard' or not game_json['moves']:
-            return
-        if game_json['status'] not in ('mate', 'resign', 'outoftime', 'stalemate', 'draw'):
-            return
-        # Split the `moves` string into a list for easier processing.
-        game_json['moves'] = game_json['moves'].split(' ')
-        # Add `user_color` and `user_result` information.
-        if game_json['players']['white']['userId'] == self.username:
-            game_json['user_color'] = True
+    Games that did not end in a win, loss, or draw (e.g., aborted games) are not returned. Only
+    standard chess games are returned - no variants like Chess960.
+    """
+    # Call API for the first time to see how many pages of results there will be.
+    url = API_ENDPOINT + 'user/' + username + '/games'
+    data = call_lichess_api(url, verbose=verbose, params={'nb': 0})
+    total_results = data.get('nbResults', 0)
+    total_pages = math.ceil(total_results / 100)
+    page = 1
+    payload = {'nb': 100, 'page': page, 'with_opening': 1, 'with_moves': 1}
+    ret = []  # type: List[dict]
+    while page <= total_pages:
+        data = call_lichess_api(url, verbose=verbose, params=payload)
+        if verbose is True:
+            print('Fetched page {} of {}'.format(page, total_pages))
+        for game_json in data['currentPageResults']:
+            if game_json['variant'] != 'standard' or not game_json['moves']:
+                continue
+            if game_json['status'] not in ('mate', 'resign', 'outoftime', 'stalemate', 'draw'):
+                continue
+            ret.append(process_game_json(username, game_json))
+        page += 1
+        payload['page'] = page
+    return ret
+
+
+def process_game_json(username: str, game_json: dict) -> dict:
+    # Split the `moves` string into a list for easier processing.
+    game_json['moves'] = game_json['moves'].split(' ')
+    # Add `user_color` and `user_result` information.
+    if game_json['players']['white']['userId'] == username:
+        game_json['user_color'] = True
+    else:
+        game_json['user_color'] = False
+    if game_json['status'] in ('stalemate', 'draw'):
+        game_json['user_result'] = 'draw'
+    else:
+        winner = True if game_json['winner'] == 'white' else False
+        if winner == game_json['user_color']:
+            game_json['user_result'] = 'win'
         else:
-            game_json['user_color'] = False
-        if game_json['status'] in ('stalemate', 'draw'):
-            game_json['user_result'] = 'draw'
-        else:
-            winner = True if game_json['winner'] == 'white' else False
-            if winner == game_json['user_color']:
-                game_json['user_result'] = 'win'
-            else:
-                game_json['user_result'] = 'loss'
-        self.games.append(game_json)
+            game_json['user_result'] = 'loss'
+    return game_json
 
-    def filter_games(self, moves_so_far):
-        return [game for game in self.games if game['moves'][:len(moves_so_far)] == moves_so_far]
+
+def filter_games(games, moves_so_far):
+    """Return an iterator over all games that began with the given moves."""
+    return (game for game in games if game['moves'][:len(moves_so_far)] == moves_so_far)
 
 
 last_api_call = 0.0
@@ -209,8 +185,8 @@ OPENING_NAMES = {
 class MoveExplorer:
     """Explore the moves from all the games of a given Lichess user."""
 
-    def __init__(self, username: str, color: bool, **profile_kwargs) -> None:
-        self.profile = Profile(username, build=True, **profile_kwargs)
+    def __init__(self, username: str, color: bool, **kwargs) -> None:
+        self.all_games = fetch_all_games(username, **kwargs)
         self._init_everything_else(color)
 
     def _init_everything_else(self, color: bool) -> None:
@@ -219,14 +195,14 @@ class MoveExplorer:
         # The ply at which the opening was determined. Used for backtracking.
         self.opening_ply = 0
         self.tree = MoveTree()
-        self.games = [g for g in self.profile.games if g['user_color'] == self.color]
+        self.games = [g for g in self.all_games if g['user_color'] == self.color]
         self.tree.build_next_level(self.games)
         self.board = chess.Board()
 
     def backtrack(self) -> None:
         if self.tree.parent is not None:
             self.tree = self.tree.parent
-            self.games = [g for g in self.profile.filter_games(self.tree.stack)
+            self.games = [g for g in filter_games(self.games, self.tree.stack)
                                   if g['user_color'] == self.color]
             self.board.pop()
             if len(self.tree.stack) <= self.opening_ply:
@@ -314,7 +290,7 @@ if __name__ == '__main__':
             else:
                 print()
         response = input('{}>>> '.format('white' if explorer.color else 'black')).strip()
-        if response.lower() == 'quit':
+        if response.lower() in ('quit', 'exit'):
             break
         elif response.lower() == 'back':
             explorer.backtrack()
