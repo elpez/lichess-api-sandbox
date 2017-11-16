@@ -1,5 +1,5 @@
 # lichess-movetree
-Explore all the moves you've ever made in your [Lichess](lichess.org) games.
+Explore all the moves you've ever made in your [Lichess](https://lichess.org) games.
 
 
 ## Installation
