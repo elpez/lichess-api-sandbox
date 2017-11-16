@@ -10,6 +10,8 @@ import json
 import os
 import argparse
 import readline
+import textwrap
+import shutil
 from operator import itemgetter, attrgetter
 from collections import Counter, namedtuple
 
@@ -261,6 +263,50 @@ class MoveExplorer:
         return (self.color and len(self.tree.stack) % 2 == 0) or \
                (not self.color and len(self.tree.stack) % 2 == 1)
 
+    def print_stats(self) -> None:
+        if self.your_turn():
+            print(format_pl('\nYOUR MOVES (from {} game{})', len(self.games)))
+        else:
+            print(format_pl("\nYOUR OPPONENTS' MOVES (from {} game{})", len(self.games)))
+        for move, node in self.available_moves():
+            wins = node.wins / node.total
+            draws = node.draws / node.total
+            losses = node.losses / node.total
+            # I believe that Ng3xe5+ (7 chars) is the longest possible chess move in strict
+            # algebraic notation.
+            print('{:7}'.format(move), end='')
+            print(' (you won {:7,.2%}, drew {:7,.2%},'.format(wins, draws), end='')
+            print(' and lost {:7,.2%}'.format(losses), end='')
+            print(format_pl(', from {} game{})', node.total))
+        print()
+        # Print the moves so far.
+        moves_so_far = self.moves_so_far()
+        if moves_so_far:
+            columns = shutil.get_terminal_size()[0]
+            remaining_columns = columns
+            for move in self._move_str_helper(moves_so_far):
+                if len(move) <= remaining_columns:
+                    print(move, end='')
+                    remaining_columns -= len(move)
+                else:
+                    print('\n' + move, end='')
+                    remaining_columns = columns - len(move)
+            # Print the name of the opening.
+            if self.opening is not None:
+                if len(self.opening) + 2 > remaining_columns:
+                    print()
+                print('({})'.format(self.opening))
+            else:
+                print()
+
+    def _move_str_helper(self, moves_so_far):
+        i = 0
+        while i < len(moves_so_far) - 1:
+            yield str(i+1) + '. ' + moves_so_far[i] + ' ' + moves_so_far[i+1] + '  '
+            i += 2
+        if i == len(moves_so_far) - 1:
+            yield str(i+1) + '. ' + moves_so_far[i] + '  '
+
 
 def format_pl(string: str, n: int) -> str:
     return string.format(n, '' if n == 1 else 's')
@@ -282,48 +328,37 @@ if __name__ == '__main__':
         username = input('Please enter your Lichess username: ').strip()
     print('\nLoading user data...\n')
     explorer = MoveExplorer(username, True, verbose=args.verbose)
+    explorer.print_stats()
     while True:
-        if explorer.your_turn():
-            print(format_pl('\nYOUR MOVES (from {} game{})', len(explorer.games)))
-        else:
-            print(format_pl("\nYOUR OPPONENTS' MOVES (from {} game{})", len(explorer.games)))
-        for move, node in explorer.available_moves():
-            wins = node.wins / node.total
-            draws = node.draws / node.total
-            losses = node.losses / node.total
-            # I believe that Ng3xe5+ (7 chars) is the longest possible chess move in strict
-            # algebraic notation.
-            print('{:7}'.format(move), end='')
-            print(' (you won {:7,.2%}, drew {:7,.2%},'.format(wins, draws), end='')
-            print(' and lost {:7,.2%}'.format(losses), end='')
-            print(format_pl(', from {} game{})', node.total))
-        print()
-        # Print the moves so far.
-        moves_so_far = explorer.moves_so_far()
-        if moves_so_far:
-            for i, move in enumerate(moves_so_far, start=1):
-                if i % 2 == 1:
-                    print('{}. {}'.format(i, move), end='')
-                else:
-                    print(' {}  '.format(move), end='')
-            # Print the name of the opening.
-            if explorer.opening is not None:
-                if len(moves_so_far) % 2 == 1:
-                    print('  ', end='')
-                print('({})'.format(explorer.opening))
-            else:
-                print()
         response = input('{}>>> '.format('white' if explorer.color else 'black')).strip()
+        response_lower = response.lower()
         if response.lower() in ('quit', 'exit'):
             break
-        elif response.lower() == 'back':
+        elif response_lower == 'back':
             explorer.backtrack()
-        elif response.lower() == 'flip':
+            explorer.print_stats()
+        elif response_lower == 'flip':
             explorer.flip()
-        elif response.lower() == 'board':
+            explorer.print_stats()
+        elif response_lower == 'board':
             print(explorer.board)
+        elif response_lower == 'stats':
+            explorer.print_stats()
+        elif response_lower == 'help':
+            print(textwrap.dedent('''\
+                    Available commands
+                      quit, exit     Exit the program.
+                      back           Go back one move.
+                      flip           Return to the starting position with the opposite color.
+                      board          Print the board's current position.
+                      stats          Print the stats for each move in the current position.
+                      help           Print this help message.
+                      <move>         Make a move on the board. Use standard algebraic notation.
+                  '''))
         else:
             try:
                 explorer.advance(response)
             except ValueError:
                 print('No games found.\n')
+            else:
+                explorer.print_stats()
