@@ -15,6 +15,8 @@ from collections import Counter, namedtuple
 
 from typing import List, Dict, Optional, Tuple
 
+import chess
+
 
 API_ENDPOINT = 'https://lichess.org/api/'
 CACHE_DIR = '.cache'
@@ -219,12 +221,14 @@ class MoveExplorer:
         self.tree = MoveTree()
         self.games = [g for g in self.profile.games if g['user_color'] == self.color]
         self.tree.build_next_level(self.games)
+        self.board = chess.Board()
 
     def backtrack(self) -> None:
         if self.tree.parent is not None:
             self.tree = self.tree.parent
             self.games = [g for g in self.profile.filter_games(self.tree.stack)
                                   if g['user_color'] == self.color]
+            self.board.pop()
             if len(self.tree.stack) <= self.opening_ply:
                 self.opening = OPENING_NAMES.get(tuple(self.tree.stack))
                 if self.opening is None:
@@ -238,6 +242,7 @@ class MoveExplorer:
         else:
             self.games = [g for g in self.games
                                   if g['moves'][:len(self.tree.stack)] == self.tree.stack]
+            self.board.push_san(move)
             if self.opening is None:
                 self.opening = OPENING_NAMES.get(tuple(self.tree.stack))
                 self.opening_ply = len(self.tree.stack)
@@ -315,6 +320,8 @@ if __name__ == '__main__':
             explorer.backtrack()
         elif response.lower() == 'flip':
             explorer.flip()
+        elif response.lower() == 'board':
+            print(explorer.board)
         else:
             try:
                 explorer.advance(response)
