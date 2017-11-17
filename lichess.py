@@ -192,6 +192,7 @@ OPENING_NAMES = {
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4'): 'Italian Game',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5'): 'Giuco Piano',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'b4'): 'Italian Game, Evans Gambit',
+    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'Ng5'): 'Fried Liver Attack',
     ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3'): "Three Knight's Game",
     ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3', 'Nf6'): "Four Knight's Game",
     ('e4', 'e5', 'Nf3', 'Nc6', 'd4'): 'Scotch Game',
@@ -227,7 +228,7 @@ class MoveExplorer:
     def backtrack(self) -> None:
         if self.tree.parent is not None:
             self.tree = self.tree.parent
-            self.games = [g for g in filter_games(self.games, self.tree.stack)
+            self.games = [g for g in filter_games(self.all_games, self.tree.stack)
                                   if g['user_color'] == self.color]
             self.board.pop()
             if len(self.tree.stack) <= self.opening_ply:
