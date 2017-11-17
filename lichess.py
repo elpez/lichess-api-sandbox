@@ -202,6 +202,7 @@ OPENING_NAMES = {
     ('e4', 'e5', 'Nf3', 'Nc6', 'c3'): 'Ponziani Opening',
     ('d4', 'Nf6'): 'Indian Defense',
     ('d4', 'Nf6', 'c4', 'g6'): "King's Indian Defense",
+    ('d4', 'Nf6', 'c4', 'g6', 'Nc3', 'd5'): 'Grünfeld Defense',
     ('d4', 'Nf6', 'c4', 'e6', 'Nc3', 'Bb4'): 'Nimzo-Indian Defense',
     ('d4', 'd5', 'c4'): "Queen's Gambit",
     ('d4', 'd5', 'c4', 'e6'): "Queen's Gambit Declined",
@@ -227,8 +228,17 @@ OPENING_NAMES = {
 class MoveExplorer:
     """Explore the moves from all the games of a given Lichess user."""
 
-    def __init__(self, username: str, color: bool, **kwargs) -> None:
+    def __init__(self, username: str, speeds: List[str], months: Optional[int], color: bool,
+                       **kwargs) -> None:
         self.all_games = fetch_all_games(username, **kwargs)
+        if speeds:
+            self.all_games = [g for g in self.all_games if g['speed'] in speeds]
+        if months is not None:
+            # Times 1000 because Lichess times are in microseconds.
+            earliest = (time.time() - 60*60*24*30*months) * 1000
+            self.all_games = [g for g in self.all_games if g['createdAt'] >= earliest]
+        for g in sorted(self.all_games, key=lambda g: g['createdAt']):
+            print('{0[players][white][userId]} vs {0[players][black][userId]}'.format(g))
         self._init_everything_else(color)
 
     def _init_everything_else(self, color: bool) -> None:
@@ -335,6 +345,11 @@ def format_pl(string: str, n: int) -> str:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('username', nargs='?')
+    speed_choices = ['bullet', 'blitz', 'classical', 'unlimited', 'correspondence']
+    parser.add_argument('--speeds', choices=speed_choices, default=[], nargs='+',
+                        help='Limit games to certain time controls')
+    parser.add_argument('--months', required=False, type=int,
+                        help='Limit games to those played in the past x months')
     parser.add_argument('--clear-cache', action='store_true', help='clear the Lichess API cache')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
@@ -346,7 +361,7 @@ if __name__ == '__main__':
     else:
         username = input('Please enter your Lichess username: ').strip()
     print('\nLoading user data...\n')
-    explorer = MoveExplorer(username, True, verbose=args.verbose)
+    explorer = MoveExplorer(username, args.speeds, args.months, True, verbose=args.verbose)
     explorer.print_stats()
     while True:
         while True:
