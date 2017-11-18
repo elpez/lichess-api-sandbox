@@ -400,8 +400,15 @@ if __name__ == '__main__':
         response_lower = response.lower()
         if response.lower() in ('quit', 'exit'):
             break
-        elif response_lower == 'back':
-            explorer.backtrack()
+        elif response_lower.startswith('back'):
+            try:
+                _, ply = response_lower.split(maxsplit=1)
+            except ValueError:
+                explorer.backtrack()
+            else:
+                ply = int(ply)
+                while len(explorer.tree.stack) + 1 != ply * 2:
+                    explorer.backtrack()
             explorer.print_stats()
         elif response_lower == 'start':
             explorer.reset()
@@ -425,7 +432,7 @@ if __name__ == '__main__':
             print(textwrap.dedent('''\
                     Available commands
                       quit, exit     Exit the program.
-                      back           Go back one move.
+                      back <n>       Go back move n, or back one move if n is not given.
                       start          Return to the starting position.
                       flip           Return to the starting position with the opposite color.
                       board          Print the board's current position.
