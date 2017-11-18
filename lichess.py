@@ -235,7 +235,7 @@ OPENING_NAMES = {
 class MoveExplorer:
     """Explore the moves from all the games of a given Lichess user."""
 
-    def __init__(self, username: str, speeds: List[str], months: Optional[int], color: bool,
+    def __init__(self, username: str, color: bool, speeds=[], months=None, exclude_computer=False,
                        **kwargs) -> None:
         self.all_games = fetch_all_games(username, **kwargs)
         if speeds:
@@ -244,8 +244,10 @@ class MoveExplorer:
             # Times 1000 because Lichess times are in microseconds.
             earliest = (time.time() - 60*60*24*30*months) * 1000
             self.all_games = [g for g in self.all_games if g['createdAt'] >= earliest]
-        for g in sorted(self.all_games, key=lambda g: g['createdAt']):
-            print('{0[players][white][userId]} vs {0[players][black][userId]}'.format(g))
+        if exclude_computer is True:
+            # Computer opponent is indicated by a null userID.
+            self.all_games = [g for g in self.all_games if g['players']['white']['userId'] and
+                                                           g['players']['black']['userId']]
         self._init_everything_else(color)
 
     def _init_everything_else(self, color: bool) -> None:
@@ -357,6 +359,8 @@ if __name__ == '__main__':
                         help='Limit games to certain time controls')
     parser.add_argument('--months', required=False, type=int,
                         help='Limit games to those played in the past x months')
+    parser.add_argument('--exclude-computer', action='store_true',
+                        help='Exclude games against the computer')
     parser.add_argument('--clear-cache', action='store_true', help='clear the Lichess API cache')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
@@ -368,7 +372,8 @@ if __name__ == '__main__':
     else:
         username = input('Please enter your Lichess username: ').strip()
     print('\nLoading user data...\n')
-    explorer = MoveExplorer(username, args.speeds, args.months, True, verbose=args.verbose)
+    explorer = MoveExplorer(username, True, args.speeds, args.months, args.exclude_computer, 
+                            verbose=args.verbose)
     explorer.print_stats()
     while True:
         while True:
