@@ -310,11 +310,16 @@ class MoveExplorer:
             wins = node.wins / node.total
             draws = node.draws / node.total
             losses = node.losses / node.total
+            print('{}.'.format((len(self.tree.stack) // 2) + 1), end='')
+            if len(self.tree.stack) % 2 == 1:
+                print('..', end='')
+            else:
+                print(' ', end='')
             # I believe that Ng3xe5+ (7 chars) is the longest possible chess move in strict
             # algebraic notation.
             print('{:7}'.format(move), end='')
-            print(' (you won {:7,.2%}, drew {:7,.2%},'.format(wins, draws), end='')
-            print(' and lost {:7,.2%}'.format(losses), end='')
+            print(' (you won {:6,.1%}, lost {:6,.1%},'.format(wins, losses), end='')
+            print(' and drew {:6,.1%}'.format(draws), end='')
             print(format_pl(', from {} game{})', node.total))
         print()
         # Print the moves so far.
@@ -366,7 +371,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.clear_cache is True:
         for fpath in os.listdir(CACHE_DIR):
-            os.remove(os.path.join(CACHE_DIR, fpath))
+            try:
+                os.remove(os.path.join(CACHE_DIR, fpath))
+            except IsADirectoryError:
+                pass
     if args.username is not None:
         username = args.username
     else:
