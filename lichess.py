@@ -15,7 +15,7 @@ import shutil
 from operator import itemgetter, attrgetter
 from collections import Counter, namedtuple
 
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Iterable
 
 import chess
 
@@ -83,7 +83,7 @@ def process_game_json(username: str, game_json: dict) -> dict:
     return game_json
 
 
-def filter_games(games, moves_so_far):
+def filter_games(games: List[dict], moves_so_far: List[str]) -> Iterable[dict]:
     """Return an iterator over all games that began with the given moves."""
     return (game for game in games if game['moves'][:len(moves_so_far)] == moves_so_far)
 
@@ -172,7 +172,8 @@ class MoveTree:
 # I may switch this to use a more robust opening book, like the one in the python-chess package.
 OPENING_NAMES = {
     ('e4', 'c5'): 'Sicilian Defense',
-    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'): 'Sicilian Defense, Najdorf Variation',
+    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'): 'Sicilian Defense,'
+                                                                         ' Najdorf Variation',
     ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'g6'): 'Sicilian Dragon',
     ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'g6'): 'Sicilian Defense, Accelerated Dragon',
     ('e4', 'c5', 'Nf3', 'Nc6'): 'Old Sicilian',
@@ -250,8 +251,8 @@ class MoveExplorer:
                                                            g['players']['black']['userId']]
         self.reset(color)
 
-    def reset(self, color=None) -> None:
-        self.color = color if color is not None else self.color
+    def reset(self, color: bool = None) -> None:
+        self.color = color if color is not None else self.color  # type: bool
         self.opening = None  # type: Optional[str]
         # The ply at which the opening was determined. Used for backtracking.
         self.opening_ply = 0
@@ -364,18 +365,17 @@ def input_yes_no(*args, **kwargs) -> bool:
             return False
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('username', nargs='?')
     speed_choices = ['bullet', 'blitz', 'classical', 'unlimited', 'correspondence']
     parser.add_argument('--speeds', choices=speed_choices, default=[], nargs='+',
                         help='Limit games to certain time controls')
-    parser.add_argument('--months', required=False, type=int,
-                        help='Limit games to those played in the past x months')
+    parser.add_argument('--months', required=False, type=int, metavar='X',
+                        help='Limit games to those played in the past X months')
     parser.add_argument('--exclude-computer', action='store_true',
                         help='Exclude games against the computer')
-    parser.add_argument('--clear-cache', action='store_true', help='clear the Lichess API cache')
+    parser.add_argument('--clear-cache', action='store_true', help='Clear the API cache')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
     if args.clear_cache is True:
@@ -389,7 +389,7 @@ if __name__ == '__main__':
     else:
         username = input('Please enter your Lichess username: ').strip()
     print('\nLoading user data...\n')
-    explorer = MoveExplorer(username, True, args.speeds, args.months, args.exclude_computer, 
+    explorer = MoveExplorer(username, True, args.speeds, args.months, args.exclude_computer,
                             verbose=args.verbose)
     explorer.print_stats()
     while True:
@@ -402,12 +402,11 @@ if __name__ == '__main__':
             break
         elif response_lower.startswith('back'):
             try:
-                _, ply = response_lower.split(maxsplit=1)
-            except ValueError:
+                moveno = int(response_lower.split(maxsplit=1)[1])
+            except (ValueError, IndexError):
                 explorer.backtrack()
             else:
-                ply = int(ply)
-                while len(explorer.tree.stack) + 1 != ply * 2:
+                while len(explorer.tree.stack) + 1 != moveno * 2:
                     explorer.backtrack()
             explorer.print_stats()
         elif response_lower == 'start':
