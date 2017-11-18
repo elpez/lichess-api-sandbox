@@ -248,10 +248,10 @@ class MoveExplorer:
             # Computer opponent is indicated by a null userID.
             self.all_games = [g for g in self.all_games if g['players']['white']['userId'] and
                                                            g['players']['black']['userId']]
-        self._init_everything_else(color)
+        self.reset(color)
 
-    def _init_everything_else(self, color: bool) -> None:
-        self.color = color
+    def reset(self, color=None) -> None:
+        self.color = color if color is not None else self.color
         self.opening = None  # type: Optional[str]
         # The ply at which the opening was determined. Used for backtracking.
         self.opening_ply = 0
@@ -289,7 +289,7 @@ class MoveExplorer:
             self.tree.build_next_level(self.games)
 
     def flip(self) -> None:
-        self._init_everything_else(not self.color)
+        self.reset(not self.color)
 
     def moves_so_far(self) -> List[str]:
         return self.tree.stack
@@ -394,6 +394,9 @@ if __name__ == '__main__':
         elif response_lower == 'back':
             explorer.backtrack()
             explorer.print_stats()
+        elif response_lower == 'start':
+            explorer.reset()
+            explorer.print_stats()
         elif response_lower == 'flip':
             explorer.flip()
             explorer.print_stats()
@@ -406,6 +409,7 @@ if __name__ == '__main__':
                     Available commands
                       quit, exit     Exit the program.
                       back           Go back one move.
+                      start          Return to the starting position.
                       flip           Return to the starting position with the opposite color.
                       board          Print the board's current position.
                       stats          Print the stats for each move in the current position.
