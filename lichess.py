@@ -355,6 +355,15 @@ def format_pl(string: str, n: int) -> str:
     return string.format(n, '' if n == 1 else 's')
 
 
+def input_yes_no(*args, **kwargs) -> bool:
+    while True:
+        response = input(*args, **kwargs).strip().lower()
+        if response.startswith('y'):
+            return True
+        elif response.startswith('n'):
+            return False
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -404,6 +413,14 @@ if __name__ == '__main__':
             print(explorer.board)
         elif response_lower == 'stats':
             explorer.print_stats()
+        elif response_lower == 'games':
+            if len(explorer.games) >= 10:
+                if not input_yes_no('Display {} results? '.format(len(explorer.games))):
+                    continue
+            for game in explorer.games:
+                white = game['players']['white']['userId'] or 'Stockfish'
+                black = game['players']['black']['userId'] or 'Stockfish'
+                print('{} vs. {} ({})'.format(white, black, game['url']))
         elif response_lower == 'help':
             print(textwrap.dedent('''\
                     Available commands
@@ -413,6 +430,7 @@ if __name__ == '__main__':
                       flip           Return to the starting position with the opposite color.
                       board          Print the board's current position.
                       stats          Print the stats for each move in the current position.
+                      games          Print information about the current games.
                       help           Print this help message.
                       <move>         Make a move on the board. Use standard algebraic notation.
                   '''))
