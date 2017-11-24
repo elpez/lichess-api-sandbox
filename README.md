@@ -26,15 +26,15 @@ $ ./lichess.py iafisher
 
 Loading user data...
 
-YOUR MOVES (from 502 games)
-d4      (you won  58.82%, drew   3.68%, and lost  37.50%, from 272 games)
-e4      (you won  53.95%, drew   6.14%, and lost  39.91%, from 228 games)
-e3      (you won   0.00%, drew 100.00%, and lost   0.00%, from 1 game)
-c4      (you won 100.00%, drew   0.00%, and lost   0.00%, from 1 game)
 
-white>>> 
+YOUR MOVES (from 460 games)
+1. d4      (you won  52.6%, lost  43.0%, and drew   4.4%, from 249 games)
+1. e4      (you won  51.0%, lost  42.3%, and drew   6.7%, from 208 games)
+1. c4      (you won 100.0%, lost   0.0%, and drew   0.0%, from 1 game)
+1. e3      (you won   0.0%, lost   0.0%, and drew 100.0%, from 1 game)
+1. g3      (you won 100.0%, lost   0.0%, and drew   0.0%, from 1 game)
+
+white>>>
 ```
 
-Enter one of the moves to see all your opponents' responses. Type `back` to undo the last move. Type
- `board` to view the board (courtesy of [python-chess](https://github.com/niklasf/python-chess)). 
-Type `flip` to see all your moves as Black. `quit` or `exit` will end the script.
+Enter one of the moves to see all your opponents' responses. Type `back` to undo the last move, or `back 3` to go back to the third move. Type `board` to view the board (courtesy of [python-chess](https://github.com/niklasf/python-chess)). Type `flip` to see all your moves as Black. Type `help` to see all the available commands. `quit` or `exit` will end the script.
