@@ -368,7 +368,7 @@ def input_yes_no(*args, **kwargs) -> bool:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('username', nargs='?')
-    speed_choices = ['bullet', 'blitz', 'classical', 'unlimited', 'correspondence']
+    speed_choices = ['bullet', 'blitz', 'rapid', 'classical', 'unlimited', 'correspondence']
     parser.add_argument('--speeds', choices=speed_choices, default=[], nargs='+',
                         help='Limit games to certain time controls')
     parser.add_argument('--months', required=False, type=int, metavar='X',
