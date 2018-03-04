@@ -13,7 +13,7 @@ $ pip install -r requirements.txt
 
 
 ## Usage
-Run the `lichess.py` script, optionally passing your Lichess username as a command-line argument
+Run the `movetree.py` script, optionally passing your Lichess username as a command-line argument
 (you will be prompted to enter it otherwise). The script will try to fetch all of your games. This
 may take some time, as Lichess only allows 100 games to be downloaded in one batch. After the
 initial download, loading should be super fast as the script caches the API results.
@@ -22,7 +22,7 @@ Voilà! The script should tell you all the opening moves you've played as White,
 of wins, draws and losses for each. For example,
 
 ```
-$ ./lichess.py iafisher
+$ ./movetree.py iafisher
 
 Loading user data...
 
