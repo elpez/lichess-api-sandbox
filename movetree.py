@@ -19,7 +19,7 @@ import chess
 from loadgames import fetch_all_games
 
 
-def filter_games(games: List[dict], moves_so_far: List[str]) -> Iterable[dict]:
+def filter_by_move_prefix(games: List[dict], moves_so_far: List[str]) -> Iterable[dict]:
     """Return an iterator over all games that began with the given moves."""
     return (game for game in games if game['moves'][:len(moves_so_far)] == moves_so_far)
 
@@ -128,21 +128,10 @@ OPENING_NAMES = {
 
 
 class MoveExplorer:
-    """Explore the moves from all the games of a given Lichess user."""
+    """Explore the moves made in a set of games (assumed to be from the same player)."""
 
-    def __init__(self, username: str, color: bool, speeds=[], months=None, exclude_computer=False,
-                       **kwargs) -> None:
-        self.all_games = fetch_all_games(username, **kwargs)
-        if speeds:
-            self.all_games = [g for g in self.all_games if g['speed'] in speeds]
-        if months is not None:
-            # Times 1000 because Lichess times are in microseconds.
-            earliest = (time.time() - 60*60*24*30*months) * 1000
-            self.all_games = [g for g in self.all_games if g['createdAt'] >= earliest]
-        if exclude_computer is True:
-            # Computer opponent is indicated by a null userID.
-            self.all_games = [g for g in self.all_games if g['players']['white']['userId'] and
-                                                           g['players']['black']['userId']]
+    def __init__(self, games: List[dict], color: bool) -> None:
+        self.all_games = games
         self.reset(color)
 
     def reset(self, color: bool = None) -> None:
@@ -158,7 +147,7 @@ class MoveExplorer:
     def backtrack(self) -> None:
         if self.tree.parent is not None:
             self.tree = self.tree.parent
-            self.games = [g for g in filter_games(self.all_games, self.tree.stack)
+            self.games = [g for g in filter_by_move_prefix(self.all_games, self.tree.stack)
                                   if g['user_color'] == self.color]
             self.board.pop()
             if len(self.tree.stack) <= self.opening_ply:
@@ -269,7 +258,7 @@ if __name__ == '__main__':
                         help='Limit games to those played in the past X months')
     parser.add_argument('--exclude-computer', action='store_true',
                         help='Exclude games against the computer')
-    parser.add_argument('--refresh-cache', action='store_true', 
+    parser.add_argument('--refresh-cache', action='store_true',
                         help='Refresh the API cache for the current user')
     parser.add_argument('--no-cache', action='store_true',
                         help='Do not read from or write to the cahce.')
@@ -281,8 +270,10 @@ if __name__ == '__main__':
     else:
         username = input('Please enter your Lichess username: ').strip()
     print('\nLoading user data...\n')
-    explorer = MoveExplorer(username, True, args.speeds, args.months, args.exclude_computer,
-                            verbose=args.verbose, refresh_cache=args.refresh_cache)
+    games = fetch_all_games(username, verbose=args.verbose, refresh_cache=args.refresh_cache,
+                            speeds=args.speeds, months=args.months,
+                            exclude_computer=args.exclude_computer)
+    explorer = MoveExplorer(games, True)
     explorer.print_stats()
     while True:
         while True:

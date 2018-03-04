@@ -12,7 +12,8 @@ API_ENDPOINT = 'https://lichess.org/api/'
 CACHE_DIR = '.lichess_cache'
 
 
-def fetch_all_games(username: str, *, verbose=False, refresh_cache=False) -> List[dict]:
+def fetch_all_games(username: str, *, verbose=False, refresh_cache=False,
+                                   **filter_kwargs) -> List[dict]:
     """Return a list of games as lightly-processed JSON objects.
 
     The JSON objects differ only slightly from those returned by the Lichess API. The `moves`
@@ -49,7 +50,21 @@ def fetch_all_games(username: str, *, verbose=False, refresh_cache=False) -> Lis
             ret.append(process_game_json(username, game_json))
         page += 1
         payload['page'] = page
-    return ret
+    return filter_games(ret, **filter_kwargs)
+
+
+def filter_games(games: List[dict], *, speeds=[], months=None, exclude_computer=False) -> List[dict]:
+    if speeds:
+        games = [g for g in games if g['speed'] in speeds]
+    if months is not None:
+        # Times 1000 because Lichess times are in microseconds.
+        earliest = (time.time() - 60*60*24*30*months) * 1000
+        games = [g for g in games if g['createdAt'] >= earliest]
+    if exclude_computer is True:
+        # Computer opponent is indicated by a null userID.
+        games = [g for g in games if g['players']['white']['userId'] and
+                                     g['players']['black']['userId']]
+    return games
 
 
 def process_game_json(username: str, game_json: dict) -> dict:
