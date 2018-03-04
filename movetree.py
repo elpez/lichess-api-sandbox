@@ -24,7 +24,7 @@ API_ENDPOINT = 'https://lichess.org/api/'
 CACHE_DIR = '.lichess_cache'
 
 
-def fetch_all_games(username: str, *, verbose=False) -> List[dict]:
+def fetch_all_games(username: str, *, verbose=False, refresh_cache=False) -> List[dict]:
     """Return a list of games as lightly-processed JSON objects.
 
     The JSON objects differ only slightly from those returned by the Lichess API. The `moves`
@@ -41,7 +41,7 @@ def fetch_all_games(username: str, *, verbose=False) -> List[dict]:
     url = API_ENDPOINT + 'user/' + username + '/games'
     if verbose is True:
         print('received', flush=True)
-    data = call_lichess_api(url, verbose=verbose, params={'nb': 0})
+    data = call_lichess_api(url, refresh_cache=refresh_cache, verbose=verbose, params={'nb': 0})
     total_results = data.get('nbResults', 0)
     total_pages = math.ceil(total_results / 100)
     page = 1
@@ -89,11 +89,11 @@ def filter_games(games: List[dict], moves_so_far: List[str]) -> Iterable[dict]:
 
 
 last_api_call = 0.0
-def call_lichess_api(url, use_cache=True, verbose=False, **kwargs) -> dict:
+def call_lichess_api(url, refresh_cache=False, verbose=False, **kwargs) -> dict:
     """Call the Lichess API, taking care not to send more than one API call per second."""
     global last_api_call
     fpath = os.path.join(CACHE_DIR, url_to_fpath(url, **kwargs))
-    if use_cache and os.path.exists(fpath):
+    if not refresh_cache and os.path.exists(fpath):
         with open(fpath, 'r') as fsock:
             data = json.load(fsock)
         return data
@@ -375,22 +375,17 @@ if __name__ == '__main__':
                         help='Limit games to those played in the past X months')
     parser.add_argument('--exclude-computer', action='store_true',
                         help='Exclude games against the computer')
-    parser.add_argument('--clear-cache', action='store_true', help='Clear the API cache')
+    parser.add_argument('--refresh-cache', action='store_true', 
+                        help='Refresh the API cache for the current user')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
-    if args.clear_cache is True:
-        for fpath in os.listdir(CACHE_DIR):
-            try:
-                os.remove(os.path.join(CACHE_DIR, fpath))
-            except IsADirectoryError:
-                pass
     if args.username is not None:
         username = args.username
     else:
         username = input('Please enter your Lichess username: ').strip()
     print('\nLoading user data...\n')
     explorer = MoveExplorer(username, True, args.speeds, args.months, args.exclude_computer,
-                            verbose=args.verbose)
+                            verbose=args.verbose, refresh_cache=args.refresh_cache)
     explorer.print_stats()
     while True:
         while True:
