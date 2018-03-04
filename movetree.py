@@ -17,6 +17,7 @@ import chess
 
 # my modules
 from loadgames import fetch_all_games
+from openings import OPENING_NAMES
 
 
 def filter_by_move_prefix(games: List[dict], moves_so_far: List[str]) -> Iterable[dict]:
@@ -61,70 +62,6 @@ class MoveTree:
                 node.wins += 1
             else:
                 node.losses += 1
-
-
-# I may switch this to use a more robust opening book, like the one in the python-chess package.
-OPENING_NAMES = {
-    ('e4', 'c5'): 'Sicilian Defense',
-    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'): 'Sicilian Defense,'
-                                                                         ' Najdorf Variation',
-    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'g6'): 'Sicilian Dragon',
-    ('e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'g6'): 'Sicilian Defense, Accelerated Dragon',
-    ('e4', 'c5', 'Nf3', 'Nc6'): 'Old Sicilian',
-    ('e4', 'c6'): 'Caro-Kann Defense',
-    ('e4', 'e6'): 'French Defense',
-    ('e4', 'd5'): 'Scandinavian Defense',
-    ('e4', 'Nf6'): "Alekhine's Defense",
-    ('e4', 'Nc6'): 'Nimzowitsch Defense',
-    ('e4', 'g6'): 'Modern Defense',
-    ('e4', 'e5'): "King's Pawn Game",
-    ('e4', 'e5', 'Nc3'): 'Vienna Game',
-    ('e4', 'e5', 'd4'): 'Center Game',
-    ('e4', 'e5', 'f4'): "King's Gambit",
-    ('e4', 'e5', 'Nf3', 'Nf6'): "Petrov's Defense",
-    ('e4', 'e5', 'Nf3', 'f5'): 'Latvian Gambit',
-    ('e4', 'e5', 'Nf3', 'd6'): 'Philidor Defense',
-    ('e4', 'e5', 'Nf3', 'd5'): 'Elephant Gambit',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5'): 'Ruy Lopez',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6'): 'Ruy Lopez, Morphy Defense',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'd6'): 'Ruy Lopez, Steinitz Defense',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'Nf6'): 'Ruy Lopez, Berlin Defense',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4'): 'Italian Game',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5'): 'Giuco Piano',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'b4'): 'Italian Game, Evans Gambit',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'Ng5'): 'Fried Liver Attack',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3'): "Three Knight's Game",
-    ('e4', 'e5', 'Nf3', 'Nc6', 'Nc3', 'Nf6'): "Four Knight's Game",
-    ('e4', 'e5', 'Nf3', 'Nc6', 'd4'): 'Scotch Game',
-    ('e4', 'e5', 'Nf3', 'Nc6', 'c3'): 'Ponziani Opening',
-    ('d4', 'Nf6'): 'Indian Defense',
-    ('d4', 'Nf6', 'c4', 'g6'): "King's Indian Defense",
-    ('d4', 'Nf6', 'c4', 'g6', 'Nc3', 'd5'): 'Grünfeld Defense',
-    ('d4', 'Nf6', 'c4', 'e6', 'Nc3', 'Bb4'): 'Nimzo-Indian Defense',
-    ('d4', 'Nf6', 'c4', 'e6', 'Nf3', 'Bb4+'): 'Bogo-Indian Defense',
-    ('d4', 'Nf6', 'c4', 'c5', 'd5'): 'Benoni Defense',
-    ('d4', 'Nf6', 'c4', 'c5', 'd5', 'b5'): 'Benko Gambit',
-    ('d4', 'd5'): "Queen's Pawn Game",
-    ('d4', 'd5', 'c4'): "Queen's Gambit",
-    ('d4', 'd5', 'c4', 'e6'): "Queen's Gambit Declined",
-    ('d4', 'd5', 'c4', 'c6'): 'Slav Defense',
-    ('d4', 'f5'): 'Dutch Defense',
-    ('c4',): 'English Opening',
-    ('Nf3',): 'Reti Opening',
-    ('a3',): 'Anderssen Opening',
-    ('a4',): 'Ware Opening',
-    ('b3',): 'Nimzo-Larsen Attack',
-    ('b4',): 'Polish Opening',
-    ('c3',): 'Saragossa Opening',
-    ('d3',): 'Mieses Opening',
-    ('e3',): "Van't Krujis Opening",
-    ('f3',): "Gedult's Opening",
-    ('f4',): 'Bird Opening',
-    ('g3',): 'Hungarian Opening',
-    ('g4',): 'Grob Opening',
-    ('h3',): 'Clemenz Opening',
-    ('h4',): 'Kadas Opening',
-}
 
 
 class MoveExplorer:
@@ -236,16 +173,110 @@ class MoveExplorer:
 
 
 def format_pl(string: str, n: int) -> str:
+    """Given a string with exactly two '{}' sequences, replace the first with `n` and the second
+    with nothing if `n` is equal to 1 and 's' otherwise.
+    """
     return string.format(n, '' if n == 1 else 's')
 
 
 def input_yes_no(*args, **kwargs) -> bool:
+    """Continually prompt the user (`args` and `kwargs` are passed to `input` unchanged) until
+    they enter something that, after stripping whitespace, starts with a 'y' or an 'n'. Return
+    True if it starts with a 'y', False if it starts with an 'n'.
+    """
     while True:
         response = input(*args, **kwargs).strip().lower()
         if response.startswith('y'):
             return True
         elif response.startswith('n'):
             return False
+
+
+# The config object represents the user configuration supplied as command-line arguments. We could
+# just use the argparse.args object instead, but it's nice to uncouple the configuration from its
+# implementation with argparse.
+Config = namedtuple('Config', 'username speeds months exclude_computer refresh_cache verbose '
+                              'cachedir')
+
+
+def run_session(config) -> None:
+    """Interact with the move tree in a terminal session."""
+    if config.username is not None:
+        username = config.username
+    else:
+        username = input('Please enter your Lichess username: ').strip()
+
+    # Get the games and fire up the move explorer.
+    print('\nLoading user data...\n')
+    games = fetch_all_games(username, verbose=config.verbose, refresh_cache=config.refresh_cache,
+                            speeds=config.speeds, months=config.months,
+                            exclude_computer=config.exclude_computer)
+    explorer = MoveExplorer(games, True)
+    explorer.print_stats()
+
+    # Run the REPL.
+    while True:
+        while True:
+            # Continue reading until a non-blank line is entered.
+            command = input('{}>>> '.format('white' if explorer.color else 'black')).strip()
+            if command:
+                break
+        if command.lower() in ('quit', 'exit'):
+            break
+        else:
+            handle_command(explorer, command)
+
+
+def handle_command(explorer, command):
+    """Handle a command read in an interactive session."""
+    command_lower = command.lower()
+    if command_lower.startswith('back'):
+        try:
+            moveno = int(command_lower.split(maxsplit=1)[1])
+        except (ValueError, IndexError):
+            explorer.backtrack()
+        else:
+            while len(explorer.tree.stack) + 1 != moveno * 2:
+                explorer.backtrack()
+        explorer.print_stats()
+    elif command_lower == 'start':
+        explorer.reset()
+        explorer.print_stats()
+    elif command_lower == 'flip':
+        explorer.flip()
+        explorer.print_stats()
+    elif command_lower == 'board':
+        print(explorer.board)
+    elif command_lower == 'stats':
+        explorer.print_stats()
+    elif command_lower == 'games':
+        if len(explorer.games) >= 10:
+            if not input_yes_no('Display {} results? '.format(len(explorer.games))):
+                return
+        for game in explorer.games:
+            white = game['players']['white']['userId'] or 'Stockfish'
+            black = game['players']['black']['userId'] or 'Stockfish'
+            print('{} vs. {} ({})'.format(white, black, game['url']))
+    elif command_lower == 'help':
+        print(textwrap.dedent('''\
+                Available commands
+                  quit, exit     Exit the program.
+                  back <n>       Go back move n, or back one move if n is not given.
+                  start          Return to the starting position.
+                  flip           Return to the starting position with the opposite color.
+                  board          Print the board's current position.
+                  stats          Print the stats for each move in the current position.
+                  games          Print information about the current games.
+                  help           Print this help message.
+                  <move>         Make a move on the board. Use standard algebraic notation.
+              '''))
+    else:
+        try:
+            explorer.advance(command)
+        except ValueError:
+            print('No games found.\n')
+        else:
+            explorer.print_stats()
 
 
 if __name__ == '__main__':
@@ -265,68 +296,7 @@ if __name__ == '__main__':
     parser.add_argument('--cachedir', help='Specify the directory for the cache.')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
-    if args.username is not None:
-        username = args.username
-    else:
-        username = input('Please enter your Lichess username: ').strip()
-    print('\nLoading user data...\n')
-    games = fetch_all_games(username, verbose=args.verbose, refresh_cache=args.refresh_cache,
-                            speeds=args.speeds, months=args.months,
-                            exclude_computer=args.exclude_computer)
-    explorer = MoveExplorer(games, True)
-    explorer.print_stats()
-    while True:
-        while True:
-            response = input('{}>>> '.format('white' if explorer.color else 'black')).strip()
-            if response:
-                break
-        response_lower = response.lower()
-        if response.lower() in ('quit', 'exit'):
-            break
-        elif response_lower.startswith('back'):
-            try:
-                moveno = int(response_lower.split(maxsplit=1)[1])
-            except (ValueError, IndexError):
-                explorer.backtrack()
-            else:
-                while len(explorer.tree.stack) + 1 != moveno * 2:
-                    explorer.backtrack()
-            explorer.print_stats()
-        elif response_lower == 'start':
-            explorer.reset()
-            explorer.print_stats()
-        elif response_lower == 'flip':
-            explorer.flip()
-            explorer.print_stats()
-        elif response_lower == 'board':
-            print(explorer.board)
-        elif response_lower == 'stats':
-            explorer.print_stats()
-        elif response_lower == 'games':
-            if len(explorer.games) >= 10:
-                if not input_yes_no('Display {} results? '.format(len(explorer.games))):
-                    continue
-            for game in explorer.games:
-                white = game['players']['white']['userId'] or 'Stockfish'
-                black = game['players']['black']['userId'] or 'Stockfish'
-                print('{} vs. {} ({})'.format(white, black, game['url']))
-        elif response_lower == 'help':
-            print(textwrap.dedent('''\
-                    Available commands
-                      quit, exit     Exit the program.
-                      back <n>       Go back move n, or back one move if n is not given.
-                      start          Return to the starting position.
-                      flip           Return to the starting position with the opposite color.
-                      board          Print the board's current position.
-                      stats          Print the stats for each move in the current position.
-                      games          Print information about the current games.
-                      help           Print this help message.
-                      <move>         Make a move on the board. Use standard algebraic notation.
-                  '''))
-        else:
-            try:
-                explorer.advance(response)
-            except ValueError:
-                print('No games found.\n')
-            else:
-                explorer.print_stats()
+    config = Config(username=args.username, speeds=args.speeds, months=args.months,
+                    exclude_computer=args.exclude_computer, refresh_cache=args.refresh_cache,
+                    verbose=args.verbose, cachedir=args.cachedir)
+    run_session(config)
