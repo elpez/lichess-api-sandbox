@@ -8,7 +8,7 @@ Install the packages from `requirements.txt`. Python 3.4+ is required.
 ```
 $ git clone https://github.com/elpez/lichess-movetree.git
 $ cd lichess-movetree
-$ pip install -r requirements.txt
+$ pip3 install -r requirements.txt
 ```
 
 
@@ -37,4 +37,4 @@ YOUR MOVES (from 460 games)
 white>>>
 ```
 
-Enter one of the moves to see all your opponents' responses. Type `back` to undo the last move, or `back 3` to go back to the third move. Type `board` to view the board (courtesy of [python-chess](https://github.com/niklasf/python-chess)). Type `flip` to see all your moves as Black. Type `help` to see all the available commands. `quit` or `exit` will end the script.
+Enter one of the moves to see all your opponents' responses. Type `back` to undo the last move, or `back 3` to go back to the third move. Type `board` to view the board (courtesy of [python-chess](https://github.com/niklasf/python-chess)). Type `flip` to see all your moves as Black. Type `help` to see all the available commands. `quit` or `exit` will end the interactive session.
