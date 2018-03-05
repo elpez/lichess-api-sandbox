@@ -9,6 +9,8 @@ import argparse
 import readline
 import textwrap
 import shutil
+import sys
+import os
 from collections import Counter, namedtuple
 from typing import List, Dict, Optional, Tuple, Iterable
 
@@ -16,8 +18,11 @@ from typing import List, Dict, Optional, Tuple, Iterable
 import chess
 
 # my modules
-from loadgames import fetch_all_games
+from loadgames import fetch_all_games, print_verbose
 from openings import OPENING_NAMES
+
+
+DEFAULT_CACHE_DIR = '.lichess_cache'
 
 
 def filter_by_move_prefix(games: List[dict], moves_so_far: List[str]) -> Iterable[dict]:
@@ -206,11 +211,13 @@ def run_session(config) -> None:
     else:
         username = input('Please enter your Lichess username: ').strip()
 
+    if config.cachedir and not os.path.exists(config.cachedir):
+        print_verbose('Creating cache directory ' + config.cachedir, config=config)
+        os.mkdir(config.cachedir)
+
     # Get the games and fire up the move explorer.
     print('\nLoading user data...\n')
-    games = fetch_all_games(username, verbose=config.verbose, refresh_cache=config.refresh_cache,
-                            speeds=config.speeds, months=config.months,
-                            exclude_computer=config.exclude_computer)
+    games = fetch_all_games(username, config=config)
     explorer = MoveExplorer(games, True)
     explorer.print_stats()
 
@@ -283,8 +290,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('username', nargs='?')
     speed_choices = ['bullet', 'blitz', 'rapid', 'classical', 'unlimited', 'correspondence']
-    parser.add_argument('--speeds', choices=speed_choices, default=[], nargs='+',
-                        help='Limit games to certain time controls')
+    parser.add_argument('--speeds', choices=speed_choices, default=[], nargs='+', metavar='S',
+                        help='Limit games to certain time controls: ' + ', '.join(speed_choices))
     parser.add_argument('--months', required=False, type=int, metavar='X',
                         help='Limit games to those played in the past X months')
     parser.add_argument('--exclude-computer', action='store_true',
@@ -293,9 +300,24 @@ if __name__ == '__main__':
                         help='Refresh the API cache for the current user')
     parser.add_argument('--no-cache', action='store_true',
                         help='Do not read from or write to the cahce.')
-    parser.add_argument('--cachedir', help='Specify the directory for the cache.')
+    parser.add_argument('--cachedir', help='Specify the directory for the cache.',
+                        default=DEFAULT_CACHE_DIR)
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
+
+    # I could have argparse do this for me with mutually exclusive groups, but I don't like its
+    # error messages.
+    if args.no_cache and args.refresh_cache:
+        sys.stderr.write('Error: "--no-cache" and "--refresh-cache" are incompatible.\n')
+        sys.exit(1)
+
+    if args.no_cache and args.cachedir != DEFAULT_CACHE_DIR:
+        sys.stderr.write('Error: "--no-cache" and "--cache" are incompatible.\n')
+        sys.exit(1)
+
+    if args.no_cache:
+        args.cachedir = ''
+
     config = Config(username=args.username, speeds=args.speeds, months=args.months,
                     exclude_computer=args.exclude_computer, refresh_cache=args.refresh_cache,
                     verbose=args.verbose, cachedir=args.cachedir)
